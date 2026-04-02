@@ -1,6 +1,8 @@
 use axum::{extract::{Path, State}, Json, Router, routing::{delete, get, post, put}};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::{Arc, Mutex}};
+use tokio::sync::Mutex;
+use axum::response::IntoResponse;
 
 pub type AppState = Arc<Mutex<Store>>;
 
@@ -57,9 +59,13 @@ async fn create_item(
     Json(item)
 }
 
-async fn get_item(Path(id): Path<u64>, State(state): State<AppState>) -> Option<Json<Item>> {
+
+async fn get_item(Path(id): Path<u64>, State(state): State<AppState>) -> impl IntoResponse {
     let store = state.lock().unwrap();
-    store.items.get(&id).cloned().map(Json)
+    match store.items.get(&id) {
+        Some(item) => Json(item).into_response(),
+        None => (StatusCode::NOT_FOUND, "Item not found").into_response(),
+    }
 }
 
 async fn update_item(
@@ -87,79 +93,44 @@ async fn delete_item(Path(id): Path<u64>, State(state): State<AppState>) -> axum
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::Body;
-    use axum::http::{Request, StatusCode};
-    use hyper::body::to_bytes;
+    use axum::http::StatusCode;
+    use axum_test::TestServer;
 
     #[tokio::test]
     async fn test_crud_flow() {
         let app = app();
+        let server = TestServer::new(app).unwrap();
 
-        // initial list
-        let response = app
-            .clone()
-            .oneshot(Request::builder().uri("/items").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        let body = to_bytes(response.into_body()).await.unwrap();
-        assert_eq!(body, "[]");
+        // 初始列表
+        let response = server.get("/items").await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+        assert_eq!(response.text(), "[]");
 
-        // create item
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/items")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"name":"task1"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        let item: Item = serde_json::from_slice(&to_bytes(response.into_body()).await.unwrap()).unwrap();
+        // 创建项目
+        let response = server
+            .post("/items")
+            .json(&serde_json::json!({"name": "task1"}))
+            .await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+        let item: Item = response.json();
         assert_eq!(item.id, 1);
         assert_eq!(item.name, "task1");
 
-        // get item
-        let response = app
-            .clone()
-            .oneshot(Request::builder().uri("/items/1").body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        // 获取项目
+        let response = server.get("/items/1").await;
+        assert_eq!(response.status_code(), StatusCode::OK);
 
-        // update item
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("PUT")
-                    .uri("/items/1")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"name":"updated"}"#))
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        let item: Item = serde_json::from_slice(&to_bytes(response.into_body()).await.unwrap()).unwrap();
+        // 更新项目
+        let response = server
+            .put("/items/1")
+            .json(&serde_json::json!({"name": "updated"}))
+            .await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+        let item: Item = response.json();
         assert_eq!(item.name, "updated");
 
-        // delete item
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("DELETE")
-                    .uri("/items/1")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        // 删除项目
+        let response = server.delete("/items/1").await;
+        assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
     }
 }
