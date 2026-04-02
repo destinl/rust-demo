@@ -59,7 +59,6 @@ async fn create_item(
     Json(item)
 }
 
-
 async fn get_item(Path(id): Path<u64>, State(state): State<AppState>) -> impl IntoResponse {
     let store = state.lock().unwrap();
     match store.items.get(&id) {
