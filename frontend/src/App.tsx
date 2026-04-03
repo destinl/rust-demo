@@ -1,113 +1,148 @@
-import React, { useState, useEffect } from 'react'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import './App.css';
 
 interface User {
-  id: number
-  name: string
-  email: string
+  id: number;
+  name: string;
+  email: string;
 }
 
 function App() {
-  const [users, setUsers] = useState<User[]>([])
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [users, setUsers] = useState<User[]>([]);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/users')
-      if (!response.ok) throw new Error('Failed to fetch users')
-      const data = await response.json()
-      setUsers(data)
-      setError(null)
-    } catch (error) {
-      console.error('Error fetching users:', error)
-      setError('Failed to load users')
-    }
-  }
-
-  const createUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name || !email) return
-    
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email })
-      })
-      if (!response.ok) throw new Error('Failed to create user')
-      const newUser = await response.json()
-      setUsers([...users, newUser])
-      setName('')
-      setEmail('')
-    } catch (error) {
-      console.error('Error creating user:', error)
-      setError('Failed to create user')
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setUsers(data);
+      setError(null);
+    } catch (err) {
+      setError('无法加载用户数据');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const deleteUser = async (id: number) => {
-    if (!confirm('确定要删除吗？')) return
-    try {
-      const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('Failed to delete user')
-      setUsers(users.filter(user => user.id !== id))
-      setError(null)
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      setError('Failed to delete user')
-    }
-  }
+  };
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    fetchUsers();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (editingUser) {
+        const response = await fetch(`/api/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email }),
+        });
+        if (!response.ok) throw new Error('Update failed');
+      } else {
+        const response = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email }),
+        });
+        if (!response.ok) throw new Error('Create failed');
+      }
+      setName('');
+      setEmail('');
+      setEditingUser(null);
+      await fetchUsers();
+    } catch (err) {
+      setError(editingUser ? '更新用户失败' : '创建用户失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('确定要删除这个用户吗？')) return;
+    try {
+      const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Delete failed');
+      await fetchUsers();
+    } catch (err) {
+      setError('删除用户失败');
+    }
+  };
+
+  const startEdit = (user: User) => {
+    setEditingUser(user);
+    setName(user.name);
+    setEmail(user.email);
+  };
+
+  const cancelEdit = () => {
+    setEditingUser(null);
+    setName('');
+    setEmail('');
+  };
 
   return (
     <div className="app">
-      <h1>🚀 Rust + React CRUD App</h1>
-      
-      {error && <div className="error">{error}</div>}
-      
-      <form onSubmit={createUser}>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Creating...' : 'Create User'}
-        </button>
-      </form>
+      <header className="header">
+        <h1>🚀 Rust + React CRUD 应用</h1>
+        <p>后端: Rust + Axum | 前端: React + TypeScript</p>
+      </header>
 
-      <div className="users">
-        <h2>Users ({users.length})</h2>
-        {users.length === 0 && !loading && <p>No users yet. Create one!</p>}
-        {users.map(user => (
-          <div key={user.id} className="user-card">
-            <h3>{user.name}</h3>
-            <p>{user.email}</p>
-            <button onClick={() => deleteUser(user.id)}>Delete</button>
+      <div className="container">
+        {error && <div className="error-message">⚠️ {error}</div>}
+
+        <div className="form-container">
+          <h2>{editingUser ? '编辑用户' : '创建新用户'}</h2>
+          <form onSubmit={handleSubmit}>
+            <input
+              type="text"
+              placeholder="姓名"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <input
+              type="email"
+              placeholder="邮箱"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? '处理中...' : editingUser ? '更新用户' : '创建用户'}
+            </button>
+            {editingUser && <button type="button" onClick={cancelEdit}>取消</button>}
+          </form>
+        </div>
+
+        <div className="users-container">
+          <h2>用户列表 ({users.length})</h2>
+          {loading && <div className="loading">加载中...</div>}
+          {users.length === 0 && !loading && <div className="empty">暂无用户</div>}
+          <div className="users-grid">
+            {users.map(user => (
+              <div key={user.id} className="user-card">
+                <h3>{user.name}</h3>
+                <p className="email">{user.email}</p>
+                <div className="actions">
+                  <button onClick={() => startEdit(user)}>编辑</button>
+                  <button onClick={() => handleDelete(user.id)}>删除</button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
