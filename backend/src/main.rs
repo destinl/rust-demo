@@ -2,15 +2,15 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{get, post, put, delete},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tokio;
+use std::net::SocketAddr;
+use tower_http::cors::{CorsLayer, Any};
 
-// 定义用户结构体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct User {
     id: u32,
@@ -18,28 +18,24 @@ struct User {
     email: String,
 }
 
-// 创建用户请求体
 #[derive(Debug, Deserialize)]
 struct CreateUserRequest {
     name: String,
     email: String,
 }
 
-// 更新用户请求体
 #[derive(Debug, Deserialize)]
 struct UpdateUserRequest {
     name: String,
     email: String,
 }
 
-// 应用状态
 #[derive(Clone)]
 struct AppState {
     users: Arc<RwLock<HashMap<u32, User>>>,
     next_id: Arc<RwLock<u32>>,
 }
 
-// 创建新用户
 async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
@@ -65,14 +61,12 @@ async fn create_user(
     (StatusCode::CREATED, Json(user))
 }
 
-// 获取所有用户
 async fn get_users(State(state): State<AppState>) -> impl IntoResponse {
     let users = state.users.read().unwrap();
     let users_list: Vec<User> = users.values().cloned().collect();
     Json(users_list)
 }
 
-// 获取单个用户
 async fn get_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -84,7 +78,6 @@ async fn get_user(
     }
 }
 
-// 更新用户
 async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -101,7 +94,6 @@ async fn update_user(
     }
 }
 
-// 删除用户
 async fn delete_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -109,26 +101,23 @@ async fn delete_user(
     let mut users = state.users.write().unwrap();
     
     if users.remove(&id).is_some() {
-        (StatusCode::NO_CONTENT, "").into_response()
+        StatusCode::NO_CONTENT.into_response()
     } else {
         (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "User not found"}))).into_response()
     }
 }
 
-// 健康检查
 async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({"status": "ok"}))
 }
 
 #[tokio::main]
 async fn main() {
-    // 初始化应用状态
     let state = AppState {
         users: Arc::new(RwLock::new(HashMap::new())),
         next_id: Arc::new(RwLock::new(1)),
     };
 
-    // 添加一些示例数据
     {
         let mut users = state.users.write().unwrap();
         let mut next_id = state.next_id.write().unwrap();
@@ -150,18 +139,16 @@ async fn main() {
         *next_id += 1;
     }
 
-    // 构建路由
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/users", get(get_users).post(create_user))
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
+        .layer(CorsLayer::permissive())  // 开发环境使用宽松的 CORS
         .with_state(state);
 
-    let addr = "0.0.0.0:3000";
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Server running on http://{}", addr);
     
-    axum::Server::bind(&addr.parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
