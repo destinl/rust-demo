@@ -1,14 +1,13 @@
+# 使用官方 Rust 镜像
 FROM rust:1.75-slim-bullseye
 
 WORKDIR /app
 
-# 复制依赖文件
-COPY Cargo.toml .
+# 复制后端代码
+COPY backend/Cargo.toml backend/Cargo.lock* ./
+COPY backend/src ./src
 
-# 复制源代码
-COPY src ./src
-
-# 构建应用
+# 编译项目
 RUN cargo build --release
 
 # 暴露端口
