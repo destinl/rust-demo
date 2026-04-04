@@ -7,6 +7,9 @@ interface User {
   email: string;
 }
 
+// 获取 API 基础 URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [name, setName] = useState('');
@@ -18,13 +21,14 @@ function App() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch(`${API_BASE_URL}/api/users`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setUsers(data);
       setError(null);
     } catch (err) {
       setError('无法加载用户数据');
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -41,14 +45,14 @@ function App() {
 
     try {
       if (editingUser) {
-        const response = await fetch(`/api/users/${editingUser.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/${editingUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email }),
         });
         if (!response.ok) throw new Error('Update failed');
       } else {
-        const response = await fetch('/api/users', {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email }),
@@ -61,6 +65,7 @@ function App() {
       await fetchUsers();
     } catch (err) {
       setError(editingUser ? '更新用户失败' : '创建用户失败');
+      console.error('Submit error:', err);
     } finally {
       setLoading(false);
     }
@@ -69,11 +74,14 @@ function App() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除这个用户吗？')) return;
     try {
-      const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, { 
+        method: 'DELETE' 
+      });
       if (!response.ok) throw new Error('Delete failed');
       await fetchUsers();
     } catch (err) {
       setError('删除用户失败');
+      console.error('Delete error:', err);
     }
   };
 
