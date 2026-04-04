@@ -3,69 +3,42 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . ./
-
-# 构建参数（可选，用于构建时替换）
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
-
 RUN npm run build
 
 FROM nginx:alpine
+
+# 复制构建后的应用
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 创建启动脚本，动态生成 Nginx 配置
-RUN cat > /docker-entrypoint.sh <<'EOF'
-#!/bin/sh
-set -e
-
-PORT=${PORT:-5173}
-# 在 Railway 上必须设置 BACKEND_URL 环境变量
-# 本地开发默认值为 http://rust-backend:3000
-if [ -z "$BACKEND_URL" ]; then
-    echo "[WARNING] BACKEND_URL not set. Using default: http://rust-backend:3000"
-    BACKEND_URL="http://rust-backend:3000"
-fi
-
-echo "[Nginx] PORT=$PORT"
-echo "[Nginx] BACKEND_URL=$BACKEND_URL"
-
-cat > /etc/nginx/conf.d/default.conf <<NGINX_CONF
+# 简单的 Nginx 配置模板 - 仅提供静态文件
+RUN cat > /etc/nginx/conf.d/default.conf.template <<'EOF'
 server {
-    listen $PORT;
+    listen ${PORT};
+    root /usr/share/nginx/html;
+    index index.html;
+    
+    # 日志配置
     error_log /var/log/nginx/error.log warn;
     access_log /var/log/nginx/access.log;
     
+    # 提供静态文件和 SPA 路由支持
     location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    location /api/ {
-        proxy_pass $BACKEND_URL/;
-        proxy_connect_timeout 90s;
-        proxy_send_timeout 90s;
-        proxy_read_timeout 90s;
-        proxy_ssl_verify off;
-        proxy_ssl_session_reuse on;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_buffering off;
+        try_files $uri $uri/ /index.html;
     }
 }
-NGINX_CONF
-
-exec "$@"
 EOF
 
-RUN chmod +x /docker-entrypoint.sh
+# 简单启动脚本 - 替换 PORT 变量（不替换 $uri 等 nginx 变量）
+RUN cat > /docker-entrypoint-custom.sh <<'SCRIPT'
+#!/bin/sh
+PORT=${PORT:-5173}
+echo "Starting nginx on port $PORT"
+# 只替换 ${PORT}，不替换 $uri 等 nginx 变量
+sed "s/\${PORT}/$PORT/g" /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+exec "$@"
+SCRIPT
+RUN chmod +x /docker-entrypoint-custom.sh
 
 EXPOSE 5173
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint-custom.sh"]
 CMD ["nginx", "-g", "daemon off;"]
