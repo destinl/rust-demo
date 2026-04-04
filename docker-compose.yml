@@ -1,8 +1,8 @@
 services:
-  backend:
+  rust-backend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./backend      # ✅ 改为 backend 目录
+      dockerfile: Dockerfile  # ✅ 直接使用该目录下的 Dockerfile
     container_name: rust-backend
     ports:
       - "3000:3000"
@@ -14,13 +14,13 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend     # ✅ 前端目录作为上下文
+      dockerfile: Dockerfile  # ✅ 改为 Dockerfile（去掉 frontend/）
     container_name: react-frontend
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      - rust-backend
     restart: unless-stopped
     networks:
       - app-network

@@ -4,8 +4,8 @@ FROM rust:1.75-slim-bullseye
 WORKDIR /app
 
 # 复制后端代码
-COPY backend/Cargo.toml backend/Cargo.lock* ./
-COPY backend/src ./src
+COPY Cargo.toml Cargo.lock* ./
+COPY src ./src
 
 # 编译项目
 RUN cargo build --release
