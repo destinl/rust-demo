@@ -21,7 +21,7 @@ function App() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`);
+      const response = await fetch(`${API_BASE_URL}/users`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setUsers(data);
@@ -45,14 +45,14 @@ function App() {
 
     try {
       if (editingUser) {
-        const response = await fetch(`${API_BASE_URL}/api/users/${editingUser.id}`, {
+        const response = await fetch(`${API_BASE_URL}/users/${editingUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email }),
         });
         if (!response.ok) throw new Error('Update failed');
       } else {
-        const response = await fetch(`${API_BASE_URL}/api/users`, {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email }),
@@ -74,7 +74,7 @@ function App() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('确定要删除这个用户吗？')) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, { 
+      const response = await fetch(`${API_BASE_URL}/users/${id}`, { 
         method: 'DELETE' 
       });
       if (!response.ok) throw new Error('Delete failed');
