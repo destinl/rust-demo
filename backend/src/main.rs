@@ -2,15 +2,17 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::sync::{Arc, RwLock};
-use std::net::SocketAddr;
-use tower_http::cors::{CorsLayer, Any};
+use tokio;
+use tower_http::cors::{Any, CorsLayer};
 
+// 定义用户结构体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct User {
     id: u32,
@@ -18,24 +20,28 @@ struct User {
     email: String,
 }
 
+// 创建用户请求体
 #[derive(Debug, Deserialize)]
 struct CreateUserRequest {
     name: String,
     email: String,
 }
 
+// 更新用户请求体
 #[derive(Debug, Deserialize)]
 struct UpdateUserRequest {
     name: String,
     email: String,
 }
 
+// 应用状态
 #[derive(Clone)]
 struct AppState {
     users: Arc<RwLock<HashMap<u32, User>>>,
     next_id: Arc<RwLock<u32>>,
 }
 
+// 创建新用户
 async fn create_user(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
@@ -61,12 +67,14 @@ async fn create_user(
     (StatusCode::CREATED, Json(user))
 }
 
+// 获取所有用户
 async fn get_users(State(state): State<AppState>) -> impl IntoResponse {
     let users = state.users.read().unwrap();
     let users_list: Vec<User> = users.values().cloned().collect();
     Json(users_list)
 }
 
+// 获取单个用户
 async fn get_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -78,6 +86,7 @@ async fn get_user(
     }
 }
 
+// 更新用户
 async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -94,6 +103,7 @@ async fn update_user(
     }
 }
 
+// 删除用户
 async fn delete_user(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -107,17 +117,20 @@ async fn delete_user(
     }
 }
 
+// 健康检查
 async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({"status": "ok"}))
 }
 
 #[tokio::main]
 async fn main() {
+    // 初始化应用状态
     let state = AppState {
         users: Arc::new(RwLock::new(HashMap::new())),
         next_id: Arc::new(RwLock::new(1)),
     };
 
+    // 添加示例数据
     {
         let mut users = state.users.write().unwrap();
         let mut next_id = state.next_id.write().unwrap();
@@ -139,16 +152,32 @@ async fn main() {
         *next_id += 1;
     }
 
+    // 配置 CORS - 允许前端访问
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    // 构建路由
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/users", get(get_users).post(create_user))
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
-        .layer(CorsLayer::permissive())  // 开发环境使用宽松的 CORS
+        .layer(cors)  // 添加 CORS 中间件
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    println!("Server running on http://{}", addr);
+    // 从环境变量读取端口（Railway 需要）
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse::<u16>()
+        .expect("PORT must be a number");
+
+    let addr = format!("0.0.0.0:{}", port);
+    println!("🚀 Server running on http://{}", addr);
+    println!("📊 Health check: http://{}/health", addr);
+    println!("👥 Users API: http://{}/users", addr);
     
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    // 启动服务器
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
