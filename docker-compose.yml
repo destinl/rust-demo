@@ -8,6 +8,7 @@ services:
       - "3000:3000"
     environment:
       - RUST_LOG=info
+      - PORT=3000
     networks:
       - app-network
 
@@ -15,9 +16,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
     container_name: react-frontend
     ports:
       - "5173:5173"
+    environment:
+      - BACKEND_URL=http://rust-backend:3000
+      - PORT=5173
     depends_on:
       - rust-backend
     networks:
