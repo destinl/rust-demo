@@ -8,9 +8,14 @@ services:
       - "3000:3000"
     environment:
       - RUST_LOG=info
-      - PORT=3000
+      - PORT=3000  # 本地开发固定为 3000，Railway 会自动覆盖
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -22,10 +27,11 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - BACKEND_URL=http://rust-backend:3000
-      - PORT=5173
+      - BACKEND_URL=http://rust-backend:3000  # 本地开发使用内网地址
+      - PORT=5173  # 本地开发固定为 5173，Railway 会自动覆盖
     depends_on:
-      - rust-backend
+      rust-backend:
+        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped

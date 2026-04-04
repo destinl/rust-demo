@@ -18,11 +18,13 @@ RUN cat > /docker-entrypoint.sh <<'EOF'
 #!/bin/sh
 set -e
 
+# Railway 会自动设置 PORT 环境变量，本地开发默认 5173
+PORT=${PORT:-5173}
 BACKEND_URL=${BACKEND_URL:-http://rust-backend:3000}
 
 cat > /etc/nginx/conf.d/default.conf <<NGINX_CONF
 server {
-    listen 5173;
+    listen $PORT;
     
     location / {
         root /usr/share/nginx/html;

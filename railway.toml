@@ -22,8 +22,10 @@ port = 5173
   name = "PORT"
   value = "5173"
 
-  # 这个需要在Railway Dashboard中手动设置为后端的Public URL
-  # 例如: https://rust-backend-production-xxxx.up.railway.app
+  # ⚠️ 重要提示：这里的 BACKEND_URL 需要在 Railway Dashboard 中设置为后端服务的实际公网 URL
+  # 例如：https://rust-demo-production.up.railway.app
+  # 或者使用 Railway 的环境变量引用（如果支持）
+  # 本地开发时使用 http://rust-backend:3000，Railway 部署时需要改为实际公网URL
   [[services.env]]
   name = "BACKEND_URL"
-  value = "http://rust-backend:3000"  # 默认值，Railway会自动使用内网连接
+  value = ""  # Railway Dashboard 中需要手动设置为真实的后端公网URL
