@@ -22,6 +22,13 @@ set -e
 PORT=${PORT:-5173}
 BACKEND_URL=${BACKEND_URL:-http://rust-backend:3000}
 
+# 仅在 PORT 和 BACKEND_URL 未被覆盖时输出提示
+if [ "$PORT" = "5173" ] && [ "$BACKEND_URL" = "http://rust-backend:3000" ]; then
+    echo "[Nginx] ℹ️ Using default config (local development mode)"
+else
+    echo "[Nginx] ℹ️ Custom config: PORT=$PORT, BACKEND_URL=$BACKEND_URL"
+fi
+
 cat > /etc/nginx/conf.d/default.conf <<NGINX_CONF
 server {
     listen $PORT;

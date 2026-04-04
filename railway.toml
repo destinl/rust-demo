@@ -1,5 +1,6 @@
 # Railway 项目配置
-# 将此文件上传到项目根目录以启用自动部署配置
+# 这是一个参考配置文件，不是必须的
+# 你也可以在 Railway Dashboard 中手动配置
 
 [[services]]
 name = "rust-backend"
@@ -10,22 +11,19 @@ port = 3000
   buildCommand = "cargo build --release"
 
   [[services.env]]
-  name = "PORT"
-  value = "3000"
+  name = "RUST_LOG"
+  value = "info"
 
 [[services]]
 name = "react-frontend"
 dockerfile = "./frontend/Dockerfile"
 port = 5173
 
-  [[services.env]]
-  name = "PORT"
-  value = "5173"
-
-  # ⚠️ 重要提示：这里的 BACKEND_URL 需要在 Railway Dashboard 中设置为后端服务的实际公网 URL
-  # 例如：https://rust-demo-production.up.railway.app
-  # 或者使用 Railway 的环境变量引用（如果支持）
-  # 本地开发时使用 http://rust-backend:3000，Railway 部署时需要改为实际公网URL
+  # ⚠️ 关键：以下配置仅用于 Docker Compose 本地开发
+  # Railway 部署时，必须在 Dashboard 中手动设置:
+  # BACKEND_URL=https://rust-backend-production-xxxx.up.railway.app
+  
   [[services.env]]
   name = "BACKEND_URL"
-  value = ""  # Railway Dashboard 中需要手动设置为真实的后端公网URL
+  value = "http://rust-backend:3000"
+  # ^ 本地开发默认值，Railway 部署时需要覆盖为后端的公网 HTTPS URL
