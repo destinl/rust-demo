@@ -7,8 +7,8 @@ interface User {
   email: string;
 }
 
-// 获取 API 基础 URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// 获取 API 基础 URL - 使用相对路径，通过 nginx 代理到后端
+const API_BASE_URL = '/api';
 
 function App() {
   const [users, setUsers] = useState<User[]>([]);

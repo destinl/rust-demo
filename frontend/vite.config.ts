@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://backend:3000',
+        target: 'http://rust-backend:3000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

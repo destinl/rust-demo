@@ -163,8 +163,8 @@ async fn main() {
         .route("/health", get(health_check))
         .route("/users", get(get_users).post(create_user))
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
-        .layer(cors)  // 添加 CORS 中间件
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);  // CORS 层需要在 with_state 之后
 
     // 从环境变量读取端口（Railway 需要）
     let port = env::var("PORT")
