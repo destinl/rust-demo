@@ -19,7 +19,12 @@ RUN cat > /docker-entrypoint.sh <<'EOF'
 set -e
 
 PORT=${PORT:-5173}
-BACKEND_URL=${BACKEND_URL:-http://rust-backend:3000}
+# 在 Railway 上必须设置 BACKEND_URL 环境变量
+# 本地开发默认值为 http://rust-backend:3000
+if [ -z "$BACKEND_URL" ]; then
+    echo "[WARNING] BACKEND_URL not set. Using default: http://rust-backend:3000"
+    BACKEND_URL="http://rust-backend:3000"
+fi
 
 echo "[Nginx] PORT=$PORT"
 echo "[Nginx] BACKEND_URL=$BACKEND_URL"
