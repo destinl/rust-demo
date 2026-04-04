@@ -18,20 +18,17 @@ RUN cat > /docker-entrypoint.sh <<'EOF'
 #!/bin/sh
 set -e
 
-# Railway 会自动设置 PORT 环境变量，本地开发默认 5173
 PORT=${PORT:-5173}
 BACKEND_URL=${BACKEND_URL:-http://rust-backend:3000}
 
-# 仅在 PORT 和 BACKEND_URL 未被覆盖时输出提示
-if [ "$PORT" = "5173" ] && [ "$BACKEND_URL" = "http://rust-backend:3000" ]; then
-    echo "[Nginx] ℹ️ Using default config (local development mode)"
-else
-    echo "[Nginx] ℹ️ Custom config: PORT=$PORT, BACKEND_URL=$BACKEND_URL"
-fi
+echo "[Nginx] PORT=$PORT"
+echo "[Nginx] BACKEND_URL=$BACKEND_URL"
 
 cat > /etc/nginx/conf.d/default.conf <<NGINX_CONF
 server {
     listen $PORT;
+    error_log /var/log/nginx/error.log warn;
+    access_log /var/log/nginx/access.log;
     
     location / {
         root /usr/share/nginx/html;
@@ -41,6 +38,11 @@ server {
     
     location /api/ {
         proxy_pass $BACKEND_URL/;
+        proxy_connect_timeout 90s;
+        proxy_send_timeout 90s;
+        proxy_read_timeout 90s;
+        proxy_ssl_verify off;
+        proxy_ssl_session_reuse on;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -48,6 +50,7 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
     }
 }
 NGINX_CONF
